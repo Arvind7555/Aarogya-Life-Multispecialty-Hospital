@@ -1,0 +1,385 @@
+{% extends 'base.html' %}
+
+{% block title %}Billing & Revenue Tracking | Aarogya Hospital{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice-dollar text-emerald-600"></i> Clinic Billing & Revenue Tracking
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Generate OPD receipts, track consultation fees, lab charges, and payment clearances</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('export_billing') }}" class="px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs flex items-center gap-2">
+                <i class="fa-solid fa-file-csv text-emerald-600 text-sm"></i> Export CSV
+            </a>
+            <button onclick="openModal('createBillModal')" class="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Create New Invoice
+            </button>
+        </div>
+    </div>
+
+    <!-- Financial KPI Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Billed</p>
+            <h3 class="text-2xl font-extrabold text-slate-800 mt-1">{{ financial.total_billed | currency }}</h3>
+            <span class="text-xs text-slate-500 mt-1 block">{{ financial.count_invoices }} Invoices Generated</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Collected (Paid)</p>
+            <h3 class="text-2xl font-extrabold text-emerald-600 mt-1">{{ financial.total_collected | currency }}</h3>
+            <span class="text-xs text-emerald-600 font-semibold mt-1 block">Realized Revenue</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Outstanding Balance Due</p>
+            <h3 class="text-2xl font-extrabold text-rose-600 mt-1">{{ financial.total_due | currency }}</h3>
+            <span class="text-xs text-rose-500 font-semibold mt-1 block">Pending Patient Dues</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Collection Rate</p>
+                {% set total = financial.total_billed or 1 %}
+                {% set rate = ((financial.total_collected / total) * 100) | round(1) %}
+                <h3 class="text-2xl font-extrabold text-sky-700 mt-1">{{ rate }}%</h3>
+                <span class="text-xs text-slate-500 mt-1 block">Payment Efficiency</span>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 text-xl">
+                <i class="fa-solid fa-percent"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unbilled Appointments Quick Actions (if any) -->
+    {% if unbilled_appointments %}
+    <div class="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 shadow-xs">
+        <div class="flex items-center space-x-3 mb-2">
+            <div class="w-7 h-7 rounded-lg bg-amber-200 text-amber-800 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-amber-900">
+                Pending Billing Action for Consultations ({{ unbilled_appointments | length }})
+            </h3>
+        </div>
+        <p class="text-xs text-amber-800 mb-3">The following consultations have been confirmed or completed and await billing counter settlement:</p>
+        <div class="flex flex-wrap gap-2">
+            {% for u in unbilled_appointments %}
+            <button onclick="prefillBillModal('{{ u.patient_id }}', '{{ u.doctor_id }}', '{{ u.id }}', '{{ u.consultation_fee }}')"
+                    class="px-3 py-1.5 rounded-xl bg-white text-slate-800 border border-amber-300 hover:bg-amber-100/80 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                <i class="fa-solid fa-bolt text-amber-600"></i>
+                <span>{{ u.patient_name }}</span>
+                <span class="text-slate-400">with</span>
+                <span class="text-teal-700">{{ u.doctor_name }}</span>
+                <span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px]">{{ u.consultation_fee | currency }}</span>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filter & Search Controls -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Status Filter Pills -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto w-full sm:w-auto">
+            <a href="{{ url_for('billing_list') }}" 
+               class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors {% if not current_status %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                All Invoices
+            </a>
+            <a href="{{ url_for('billing_list', status='Paid') }}" 
+               class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors {% if current_status == 'Paid' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Fully Paid
+            </a>
+            <a href="{{ url_for('billing_list', status='Partially Paid') }}" 
+               class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors {% if current_status == 'Partially Paid' %}bg-amber-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Partially Paid
+            </a>
+            <a href="{{ url_for('billing_list', status='Unpaid') }}" 
+               class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors {% if current_status == 'Unpaid' %}bg-rose-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Unpaid / Due
+            </a>
+        </div>
+
+        <!-- Search Bar -->
+        <form action="{{ url_for('billing_list') }}" method="GET" class="w-full sm:max-w-xs flex items-center space-x-2">
+            <div class="relative flex-1">
+                <span class="absolute left-3 top-2 text-slate-400 text-xs">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Invoice #, patient, ref..." 
+                       class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <button type="submit" class="px-3 py-1.5 bg-slate-800 text-white font-bold text-xs rounded-xl">Go</button>
+        </form>
+    </div>
+
+    <!-- Invoices Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {% if invoices %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-3.5 px-4">Invoice # & Date</th>
+                        <th class="py-3.5 px-4">Patient Information</th>
+                        <th class="py-3.5 px-4">Doctor & Specialty</th>
+                        <th class="py-3.5 px-4">Total Amount</th>
+                        <th class="py-3.5 px-4">Paid Amount</th>
+                        <th class="py-3.5 px-4">Balance Due</th>
+                        <th class="py-3.5 px-4">Payment Method</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4 text-right">Receipt & Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for inv in invoices %}
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4">
+                            <span class="font-mono font-bold text-sky-700 block">{{ inv.invoice_no }}</span>
+                            <span class="text-xs text-slate-400 font-mono">{{ inv.invoice_date }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <a href="{{ url_for('patient_detail', patient_id=inv.patient_id) }}" class="font-bold text-slate-800 hover:text-sky-600 block">
+                                {{ inv.patient_name }}
+                            </a>
+                            <span class="text-xs text-slate-400 font-mono">{{ inv.patient_code }} • {{ inv.patient_phone }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="font-medium text-slate-800 block">{{ inv.doctor_name }}</span>
+                            <span class="text-xs text-teal-600 font-semibold">{{ inv.specialization_name }}</span>
+                        </td>
+                        <td class="py-3.5 px-4 font-bold text-slate-900">
+                            {{ inv.total_amount | currency }}
+                        </td>
+                        <td class="py-3.5 px-4 font-semibold text-emerald-600">
+                            {{ inv.paid_amount | currency }}
+                        </td>
+                        <td class="py-3.5 px-4 font-semibold {% if inv.balance_due > 0 %}text-rose-600 font-bold{% else %}text-slate-400{% endif %}">
+                            {{ inv.balance_due | currency }}
+                        </td>
+                        <td class="py-3.5 px-4 text-xs">
+                            <span class="font-medium text-slate-700 block">{{ inv.payment_method }}</span>
+                            {% if inv.transaction_ref %}
+                            <span class="font-mono text-slate-400 text-[11px] truncate block max-w-[120px]">{{ inv.transaction_ref }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5
+                                {% if inv.payment_status == 'Paid' %}badge-status-paid
+                                {% elif inv.payment_status == 'Partially Paid' %}badge-status-partially-paid
+                                {% else %}badge-status-unpaid{% endif %}">
+                                <span class="w-1.5 h-1.5 rounded-full 
+                                    {% if inv.payment_status == 'Paid' %}bg-emerald-500
+                                    {% elif inv.payment_status == 'Partially Paid' %}bg-amber-500
+                                    {% else %}bg-rose-500{% endif %}"></span>
+                                {{ inv.payment_status }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 border border-slate-200 transition-colors inline-flex items-center gap-1">
+                                <i class="fa-solid fa-receipt"></i> Print Bill
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-slate-500">
+            <i class="fa-solid fa-receipt text-4xl text-slate-300 mb-3"></i>
+            <p class="font-medium">No invoices found matching your criteria.</p>
+            <button onclick="openModal('createBillModal')" class="mt-4 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+                Create New Invoice
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Modal: Create New Invoice -->
+<div id="createBillModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Generate Patient Medical Invoice</h3>
+                    <p class="text-xs text-slate-500">Itemize consultation, diagnostics, lab procedures, and payments</p>
+                </div>
+            </div>
+            <button onclick="closeModal('createBillModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('create_invoice') }}" method="POST" class="mt-4 space-y-4">
+            <input type="hidden" id="billing_appointment_id" name="appointment_id" value="">
+
+            <!-- Patient & Doctor Selection -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Select Patient *</label>
+                    <select id="billing_patient_select" name="patient_id" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                        <option value="">-- Choose Patient --</option>
+                        {% for p in patients %}
+                        <option value="{{ p.id }}">{{ p.name }} ({{ p.patient_id }} • {{ p.phone }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Attending Doctor *</label>
+                    <select id="billing_doctor_select" name="doctor_id" required onchange="handleDoctorSelect(this, 'billing_consultation_fee', null)" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                        <option value="">-- Choose Doctor --</option>
+                        {% for d in doctors %}
+                        <option value="{{ d.id }}" data-fee="{{ d.consultation_fee }}">{{ d.name }} ({{ d.spec_name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Date and Doctor Consultation Fee -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Invoice Date *</label>
+                    <input type="date" name="invoice_date" value="{{ today_date }}" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Consultation Fee (₹) *</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-400 text-sm">₹</span>
+                        <input type="number" step="10" min="0" id="billing_consultation_fee" name="consultation_fee" value="500" required oninput="calculateBill()" class="w-full pl-7 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Additional Services / Lab Charges -->
+            <div class="border-t border-slate-100 pt-3">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                        Additional Lab Tests, Procedures & Medicines
+                    </label>
+                    <button type="button" onclick="addChargeItemRow()" class="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
+                        <i class="fa-solid fa-plus-circle"></i> Add Line Item
+                    </button>
+                </div>
+                
+                <div id="charges-container">
+                    <!-- Default sample item row -->
+                    <div class="grid grid-cols-12 gap-2 mb-2 items-center charge-row">
+                        <div class="col-span-7">
+                            <input type="text" name="item_name[]" placeholder="Item/Service (e.g. ECG, Blood Sugar, Dressing)" 
+                                   class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div class="col-span-4">
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-slate-400 text-sm">₹</span>
+                                <input type="number" step="0.01" min="0" name="item_cost[]" placeholder="0.00" 
+                                       oninput="calculateBill()"
+                                       class="w-full pl-7 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none item-cost">
+                            </div>
+                        </div>
+                        <div class="col-span-1 text-center">
+                            <button type="button" onclick="removeChargeItemRow(this)" class="text-rose-500 hover:text-rose-700 p-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discounts & Tax -->
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Discount Amount (₹)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-400 text-sm">₹</span>
+                        <input type="number" step="1" min="0" id="billing_discount" name="discount" value="0" oninput="calculateBill()" class="w-full pl-7 pr-3 py-2 text-sm border border-slate-300 rounded-xl">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Tax / GST (%)</label>
+                    <input type="number" step="0.5" min="0" id="billing_tax" name="tax_percentage" value="0" oninput="calculateBill()" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <!-- Live Calculation Summary Box -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm space-y-1.5">
+                <div class="flex justify-between text-slate-600">
+                    <span>Gross Subtotal:</span>
+                    <span id="billing_subtotal_display" class="font-semibold">₹500.00</span>
+                </div>
+                <div class="flex justify-between text-base font-extrabold text-slate-900 border-t border-slate-200 pt-1.5">
+                    <span>Net Total Payable:</span>
+                    <span id="billing_total_display" class="text-emerald-700 text-lg">₹500.00</span>
+                </div>
+                <div class="flex justify-between text-xs text-rose-600 font-bold">
+                    <span>Remaining Balance Due:</span>
+                    <span id="billing_due_display">₹0.00</span>
+                </div>
+            </div>
+
+            <!-- Payment Collection Details -->
+            <div class="border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Amount Paid (₹) *</label>
+                    <input type="number" step="1" min="0" id="billing_paid" name="paid_amount" value="500" required oninput="calculateBill()" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl font-bold text-emerald-700">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Payment Method</label>
+                    <select name="payment_method" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                        <option value="Cash">Cash Counter</option>
+                        <option value="UPI / Online">UPI / QR (GPay / PhonePe / Paytm)</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Health Insurance">Health Insurance / TPA</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Transaction Ref / Txn ID</label>
+                    <input type="text" name="transaction_ref" placeholder="UPI-123456 / Cash Slip #" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Invoice Remarks / Billing Note</label>
+                <input type="text" name="notes" placeholder="e.g. Paid in full at reception counter" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('createBillModal')" class="px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">Generate Bill & Receipt</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function prefillBillModal(patientId, doctorId, appointmentId, fee) {
+        document.getElementById('billing_patient_select').value = patientId;
+        document.getElementById('billing_doctor_select').value = doctorId;
+        document.getElementById('billing_appointment_id').value = appointmentId;
+        document.getElementById('billing_consultation_fee').value = fee;
+        document.getElementById('billing_paid').value = fee;
+        calculateBill();
+        openModal('createBillModal');
+    }
+
+    // Trigger initial calculation on page ready
+    document.addEventListener('DOMContentLoaded', () => {
+        calculateBill();
+    });
+</script>
+{% endblock %}

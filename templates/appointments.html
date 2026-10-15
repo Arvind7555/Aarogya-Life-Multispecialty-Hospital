@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+
+{% block title %}Appointments Management | Aarogya Hospital{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-check text-sky-600"></i> Clinic Appointments & Consultation Scheduler
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Schedule, monitor, and track patient consultations and OPD visits</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('export_appointments') }}" class="px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs flex items-center gap-2">
+                <i class="fa-solid fa-file-csv text-emerald-600 text-sm"></i> Export CSV
+            </a>
+            <button onclick="openModal('bookAppointmentModal')" class="px-4 py-2.5 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-calendar-plus"></i> Book New Appointment
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter & Search Controls -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+        <form action="{{ url_for('appointments_list') }}" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
+            <!-- Date Filter -->
+            <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Date</label>
+                <select name="date" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                    <option value="all" {% if current_date_filter == 'all' or not current_date_filter %}selected{% endif %}>All Dates</option>
+                    <option value="today" {% if current_date_filter == 'today' %}selected{% endif %}>Today's Appointments</option>
+                </select>
+            </div>
+
+            <!-- Doctor Filter -->
+            <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Doctor</label>
+                <select name="doctor_id" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                    <option value="">All Doctors</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.id }}" {% if current_doctor_filter == d.id|string %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status</label>
+                <select name="status" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                    <option value="">All Statuses</option>
+                    <option value="Scheduled" {% if current_status_filter == 'Scheduled' %}selected{% endif %}>Scheduled</option>
+                    <option value="Confirmed" {% if current_status_filter == 'Confirmed' %}selected{% endif %}>Confirmed</option>
+                    <option value="Completed" {% if current_status_filter == 'Completed' %}selected{% endif %}>Completed</option>
+                    <option value="Cancelled" {% if current_status_filter == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                    <option value="No-Show" {% if current_status_filter == 'No-Show' %}selected{% endif %}>No-Show</option>
+                </select>
+            </div>
+
+            <!-- Search input -->
+            <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Search Patient</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Patient name, phone, APT #..." class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex items-center space-x-2 pt-5">
+                <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-xs">
+                    Apply Filter
+                </button>
+                <a href="{{ url_for('appointments_list') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-xl">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Appointments Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {% if appointments %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-3.5 px-4">Token & Time</th>
+                        <th class="py-3.5 px-4">Patient Information</th>
+                        <th class="py-3.5 px-4">Doctor & Department</th>
+                        <th class="py-3.5 px-4">Visit Type & Reason</th>
+                        <th class="py-3.5 px-4">Clinical Notes</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for apt in appointments %}
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4">
+                            <span class="font-bold text-slate-800 block">{{ apt.appointment_time }}</span>
+                            <span class="text-xs font-medium text-slate-500 block">{{ apt.appointment_date }}</span>
+                            <span class="text-xs font-mono text-sky-700 font-bold">{{ apt.appointment_no }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <a href="{{ url_for('patient_detail', patient_id=apt.patient_id) }}" class="font-bold text-slate-800 hover:text-sky-600 block">
+                                {{ apt.patient_name }}
+                            </a>
+                            <span class="text-xs text-slate-400 font-mono">{{ apt.patient_code }} • {{ apt.patient_phone }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <a href="{{ url_for('doctor_detail', doctor_id=apt.doctor_id) }}" class="font-semibold text-slate-800 hover:underline block">
+                                {{ apt.doctor_name }}
+                            </a>
+                            <span class="text-xs text-teal-600 font-semibold">{{ apt.specialization_name }}</span>
+                            <span class="text-xs text-slate-400">({{ apt.cabin_no }})</span>
+                        </td>
+                        <td class="py-3.5 px-4 max-w-xs">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                {{ apt.visit_type }}
+                            </span>
+                            <p class="text-xs text-slate-600 mt-1 truncate" title="{{ apt.reason }}">{{ apt.reason or 'Consultation' }}</p>
+                        </td>
+                        <td class="py-3.5 px-4 max-w-xs">
+                            <button onclick="openNotesModal('{{ apt.id }}', '{{ apt.appointment_no }}', '{{ apt.status }}', `{{ apt.doctor_notes or '' }}`)" 
+                                    class="text-xs text-left group">
+                                {% if apt.doctor_notes %}
+                                <span class="text-slate-700 line-clamp-2">{{ apt.doctor_notes }}</span>
+                                <span class="text-sky-600 text-[10px] font-semibold group-hover:underline block mt-0.5">Edit Notes</span>
+                                {% else %}
+                                <span class="text-slate-400 italic flex items-center gap-1 group-hover:text-sky-600">
+                                    <i class="fa-solid fa-notes-medical"></i> Add Rx Notes
+                                </span>
+                                {% endif %}
+                            </button>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5
+                                {% if apt.status == 'Scheduled' %}badge-status-scheduled
+                                {% elif apt.status == 'Confirmed' %}badge-status-confirmed
+                                {% elif apt.status == 'Completed' %}badge-status-completed
+                                {% elif apt.status == 'Cancelled' %}badge-status-cancelled
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                <span class="w-1.5 h-1.5 rounded-full 
+                                    {% if apt.status == 'Scheduled' %}bg-amber-500
+                                    {% elif apt.status == 'Confirmed' %}bg-sky-500
+                                    {% elif apt.status == 'Completed' %}bg-emerald-500
+                                    {% else %}bg-slate-400{% endif %}"></span>
+                                {{ apt.status }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                            <!-- Quick Status Transition dropdown / buttons -->
+                            {% if apt.status == 'Scheduled' %}
+                            <form action="{{ url_for('update_appointment_status', apt_id=apt.id) }}" method="POST" class="inline">
+                                <input type="hidden" name="status" value="Confirmed">
+                                <button type="submit" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100">
+                                    <i class="fa-solid fa-check mr-0.5"></i> Confirm
+                                </button>
+                            </form>
+                            {% elif apt.status == 'Confirmed' %}
+                            <form action="{{ url_for('update_appointment_status', apt_id=apt.id) }}" method="POST" class="inline">
+                                <input type="hidden" name="status" value="Completed">
+                                <button type="submit" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+                                    <i class="fa-solid fa-circle-check mr-0.5"></i> Complete
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            {% if apt.invoice_id %}
+                            <a href="{{ url_for('invoice_detail', invoice_id=apt.invoice_id) }}" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 inline-block">
+                                <i class="fa-solid fa-receipt mr-0.5"></i> Bill #{{ apt.invoice_id }}
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('billing_list') }}" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 inline-block">
+                                <i class="fa-solid fa-file-invoice mr-0.5"></i> Gen Bill
+                            </a>
+                            {% endif %}
+
+                            {% if apt.status not in ['Completed', 'Cancelled'] %}
+                            <form action="{{ url_for('update_appointment_status', apt_id=apt.id) }}" method="POST" class="inline" onsubmit="return confirm('Cancel this appointment?')">
+                                <input type="hidden" name="status" value="Cancelled">
+                                <button type="submit" class="px-2 py-1 text-xs text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50" title="Cancel Appointment">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-slate-500">
+            <i class="fa-regular fa-calendar-xmark text-4xl text-slate-300 mb-3"></i>
+            <p class="font-medium">No appointments found matching your filters.</p>
+            <button onclick="openModal('bookAppointmentModal')" class="mt-4 px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 text-white hover:bg-sky-700">
+                Book An Appointment
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Modal: Doctor Clinical Notes / Status Update -->
+<div id="notesModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+                <h3 class="text-base font-bold text-slate-800">Doctor Notes & Status Update</h3>
+                <p id="notes_apt_no" class="text-xs text-slate-500 font-mono"></p>
+            </div>
+            <button onclick="closeModal('notesModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form id="notesForm" method="POST" class="mt-4 space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Appointment Status</label>
+                <select id="notes_status" name="status" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                    <option value="No-Show">No-Show</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Doctor Prescription / Clinical Notes</label>
+                <textarea id="notes_text" name="doctor_notes" rows="4" placeholder="Enter findings, prescriptions, test recommendations..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('notesModal')" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-sm font-bold bg-sky-600 text-white rounded-xl">Save Consultation Notes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Book New Appointment -->
+<div id="bookAppointmentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Book Patient Appointment</h3>
+                    <p class="text-xs text-slate-500">Schedule specialist consultation slot</p>
+                </div>
+            </div>
+            <button onclick="closeModal('bookAppointmentModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('book_appointment') }}" method="POST" class="mt-4 space-y-4">
+            <!-- Patient selection -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Select Patient *</label>
+                <select name="patient_id" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                    <option value="">-- Choose Patient --</option>
+                    {% for p in patients %}
+                    <option value="{{ p.id }}">{{ p.name }} ({{ p.patient_id }} • {{ p.phone }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Doctor selection -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Select Doctor & Department *</label>
+                <select name="doctor_id" required onchange="handleDoctorSelect(this, null, 'apt_cabin_info')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                    <option value="">-- Choose Doctor --</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.id }}">{{ d.name }} — {{ d.spec_name }} (Fee: {{ d.consultation_fee | currency }})</option>
+                    {% endfor %}
+                </select>
+                <p id="apt_cabin_info" class="text-xs text-slate-500 mt-1 font-medium"></p>
+            </div>
+
+            <!-- Date & Time -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Appointment Date *</label>
+                    <input type="date" name="appointment_date" value="{{ today_date }}" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Time Slot *</label>
+                    <select name="appointment_time" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+                        <option value="09:00 AM">09:00 AM</option>
+                        <option value="09:30 AM">09:30 AM</option>
+                        <option value="10:00 AM">10:00 AM</option>
+                        <option value="10:30 AM">10:30 AM</option>
+                        <option value="11:00 AM">11:00 AM</option>
+                        <option value="11:30 AM">11:30 AM</option>
+                        <option value="12:00 PM">12:00 PM</option>
+                        <option value="04:00 PM">04:00 PM</option>
+                        <option value="04:30 PM">04:30 PM</option>
+                        <option value="05:00 PM">05:00 PM</option>
+                        <option value="05:30 PM">05:30 PM</option>
+                        <option value="06:00 PM">06:00 PM</option>
+                        <option value="06:30 PM">06:30 PM</option>
+                        <option value="07:00 PM">07:00 PM</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Visit Type -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Visit Type</label>
+                <select name="visit_type" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                    <option value="Consultation">General Consultation</option>
+                    <option value="Follow-up">Follow-up Visit</option>
+                    <option value="Routine Checkup">Routine Wellness Checkup</option>
+                    <option value="Emergency">Urgent / Emergency Consultation</option>
+                </select>
+            </div>
+
+            <!-- Reason -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Reason for Visit / Chief Symptoms</label>
+                <textarea name="reason" rows="2" placeholder="e.g. Back pain, chest heaviness, skin irritation..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('bookAppointmentModal')" class="px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md">Confirm Booking</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openNotesModal(aptId, aptNo, status, notes) {
+        document.getElementById('notesForm').action = `/appointments/${aptId}/status`;
+        document.getElementById('notes_apt_no').innerText = `Appointment: ${aptNo}`;
+        document.getElementById('notes_status').value = status;
+        document.getElementById('notes_text').value = notes;
+        openModal('notesModal');
+    }
+</script>
+{% endblock %}

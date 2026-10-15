@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoice {{ invoice.invoice_no }} | Aarogya Hospital{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl mx-auto">
+
+    <!-- Non-printable Top Actions Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+        <a href="{{ url_for('billing_list') }}" class="text-xs font-semibold text-slate-500 hover:text-sky-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-arrow-left"></i> Back to Invoices List
+        </a>
+        <div class="flex items-center space-x-3">
+            {% if invoice.balance_due > 0 %}
+            <button onclick="openModal('settlePaymentModal')" class="px-4 py-2 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-money-bill-wave"></i> Settle Due ({{ invoice.balance_due | currency }})
+            </button>
+            {% endif %}
+            <button onclick="printInvoice()" class="px-5 py-2 text-xs font-bold rounded-xl bg-slate-900 hover:bg-black text-white shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-print"></i> Print Invoice / Receipt
+            </button>
+        </div>
+    </div>
+
+    <!-- Official Printable Medical Invoice Card -->
+    <div id="printable-invoice" class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-8 sm:p-12 relative overflow-hidden text-slate-800">
+        
+        <!-- Watermark Payment Stamp -->
+        <div class="absolute right-12 top-28 pointer-events-none select-none z-10">
+            {% if invoice.payment_status == 'Paid' %}
+            <div class="paid-stamp text-xl md:text-2xl uppercase">PAID IN FULL</div>
+            {% elif invoice.payment_status == 'Partially Paid' %}
+            <div class="partial-stamp text-lg md:text-xl uppercase">PARTIAL PAYMENT</div>
+            {% else %}
+            <div class="unpaid-stamp text-xl md:text-2xl uppercase">PAYMENT DUE</div>
+            {% endif %}
+        </div>
+
+        <!-- Hospital Header -->
+        <div class="border-b-2 border-slate-800 pb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center space-x-4">
+                    <div class="w-14 h-14 rounded-2xl bg-sky-700 text-white flex items-center justify-center text-3xl shadow-sm">
+                        <i class="fa-solid fa-hospital"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black tracking-tight text-slate-900 uppercase">{{ hospital_name }}</h1>
+                        <p class="text-xs font-bold text-sky-700 tracking-wide">{{ hospital_tagline }}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ hospital_address }}</p>
+                    </div>
+                </div>
+                <div class="text-left sm:text-right text-xs text-slate-600 space-y-0.5">
+                    <p><strong>Emergency:</strong> {{ hospital_phone.split('/')[0] }}</p>
+                    <p><strong>OPD Desk:</strong> {{ hospital_phone.split('/')[1] or hospital_phone }}</p>
+                    <p class="font-mono text-slate-400">GSTIN: 07AABCA1234F1Z5</p>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <span>OPD Consultation & Medical Bill Receipt</span>
+                <span>Original Patient Copy</span>
+            </div>
+        </div>
+
+        <!-- Invoice & Patient Info Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 my-6 text-xs leading-relaxed">
+            <!-- Patient Demographics -->
+            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">Patient Details</span>
+                <p class="text-base font-bold text-slate-900">{{ invoice.patient_name }}</p>
+                <div class="mt-1 space-y-0.5 text-slate-600">
+                    <p><strong>UHID / Patient ID:</strong> <span class="font-mono text-sky-700 font-bold">{{ invoice.patient_code }}</span></p>
+                    <p><strong>Age / Gender:</strong> {{ invoice.patient_age }} Yrs / {{ invoice.patient_gender }}</p>
+                    <p><strong>Blood Group:</strong> <span class="font-bold text-rose-700 font-mono">{{ invoice.blood_group }}</span></p>
+                    <p><strong>Phone:</strong> {{ invoice.patient_phone }}</p>
+                    <p class="text-slate-500"><strong>Address:</strong> {{ invoice.patient_address or 'Registered address' }}</p>
+                </div>
+            </div>
+
+            <!-- Doctor & Invoice Metadata -->
+            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">Invoice & Physician Details</span>
+                <div class="space-y-1 text-slate-600">
+                    <p><strong>Invoice Number:</strong> <span class="font-mono text-base font-bold text-slate-900">{{ invoice.invoice_no }}</span></p>
+                    <p><strong>Invoice Date:</strong> <span class="font-mono font-medium">{{ invoice.invoice_date }}</span></p>
+                    <p><strong>Attending Doctor:</strong> <span class="font-bold text-slate-900">{{ invoice.doctor_name }}</span></p>
+                    <p><strong>Specialization:</strong> {{ invoice.specialization_name }} ({{ invoice.cabin_no }})</p>
+                    {% if invoice.appointment_no %}
+                    <p><strong>Appointment Token:</strong> <span class="font-mono font-semibold text-teal-700">{{ invoice.appointment_no }} ({{ invoice.visit_type }})</span></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Itemized Charges Table -->
+        <div class="overflow-x-auto my-6">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-100/80 text-slate-700 font-bold uppercase tracking-wider border-b-2 border-slate-300">
+                        <th class="py-2.5 px-3 w-12 text-center">#</th>
+                        <th class="py-2.5 px-3">Service / Investigation / Procedure</th>
+                        <th class="py-2.5 px-3 text-right w-32">Amount (₹)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    {% for it in items %}
+                    <tr>
+                        <td class="py-2.5 px-3 text-center text-slate-400 font-mono">{{ loop.index }}</td>
+                        <td class="py-2.5 px-3 font-medium text-slate-800">{{ it.item }}</td>
+                        <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{{ it.amount | currency }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td class="py-2.5 px-3 text-center text-slate-400 font-mono">1</td>
+                        <td class="py-2.5 px-3 font-medium text-slate-800">Specialist Doctor OPD Consultation Fee</td>
+                        <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{{ invoice.consultation_fee | currency }}</td>
+                    </tr>
+                    {% if invoice.additional_charges > 0 %}
+                    <tr>
+                        <td class="py-2.5 px-3 text-center text-slate-400 font-mono">2</td>
+                        <td class="py-2.5 px-3 font-medium text-slate-800">Diagnostics, Lab Investigation & Medical Services</td>
+                        <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{{ invoice.additional_charges | currency }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Financial Summary Breakdown -->
+        <div class="flex flex-col sm:flex-row justify-between gap-6 pt-4 border-t-2 border-slate-200 text-xs">
+            <div class="sm:max-w-xs space-y-2 text-slate-600">
+                <p><strong>Payment Mode:</strong> <span class="font-semibold text-slate-800">{{ invoice.payment_method }}</span></p>
+                {% if invoice.transaction_ref %}
+                <p><strong>Transaction Ref:</strong> <span class="font-mono text-slate-700">{{ invoice.transaction_ref }}</span></p>
+                {% endif %}
+                {% if invoice.notes %}
+                <p><strong>Remarks:</strong> <span class="italic text-slate-500">{{ invoice.notes }}</span></p>
+                {% endif %}
+                <div class="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] text-slate-500 leading-normal">
+                    <p class="font-bold text-slate-600 mb-0.5">Clinical Note:</p>
+                    <p>Consultation receipt valid for 7 days for one complimentary follow-up review. Medicines & investigations are non-refundable.</p>
+                </div>
+            </div>
+
+            <!-- Totals Box -->
+            <div class="w-full sm:w-72 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                {% set gross = invoice.consultation_fee + invoice.additional_charges %}
+                <div class="flex justify-between text-slate-600">
+                    <span>Gross Subtotal:</span>
+                    <span class="font-mono font-medium">{{ gross | currency }}</span>
+                </div>
+                {% if invoice.discount > 0 %}
+                <div class="flex justify-between text-emerald-600">
+                    <span>Discount:</span>
+                    <span class="font-mono">- {{ invoice.discount | currency }}</span>
+                </div>
+                {% endif %}
+                {% if invoice.tax_percentage > 0 %}
+                <div class="flex justify-between text-slate-600">
+                    <span>Tax (GST {{ invoice.tax_percentage }}%):</span>
+                    <span class="font-mono">+ {{ ((invoice.total_amount - (gross - invoice.discount))) | currency }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between text-sm font-extrabold text-slate-900 border-t border-slate-300 pt-2">
+                    <span>Grand Total:</span>
+                    <span class="font-mono text-base text-slate-900">{{ invoice.total_amount | currency }}</span>
+                </div>
+                <div class="flex justify-between font-bold text-emerald-700">
+                    <span>Amount Paid:</span>
+                    <span class="font-mono">{{ invoice.paid_amount | currency }}</span>
+                </div>
+                <div class="flex justify-between font-bold {% if invoice.balance_due > 0 %}text-rose-600{% else %}text-slate-400{% endif %} border-t border-slate-200 pt-1">
+                    <span>Balance Due:</span>
+                    <span class="font-mono">{{ invoice.balance_due | currency }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signatures Section -->
+        <div class="grid grid-cols-2 gap-8 mt-16 pt-8 border-t border-slate-200 text-center text-xs text-slate-600">
+            <div>
+                <div class="w-40 border-b border-slate-400 mx-auto mb-2"></div>
+                <p class="font-bold text-slate-800">Cashier / Billing Desk</p>
+                <p class="text-[10px] text-slate-400">{{ hospital_name }}</p>
+            </div>
+            <div>
+                <div class="w-40 border-b border-slate-400 mx-auto mb-2"></div>
+                <p class="font-bold text-slate-800">Authorized Medical Superintendent</p>
+                <p class="text-[10px] text-slate-400">Digital Seal & Verification</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Modal: Settle Payment -->
+{% if invoice.balance_due > 0 %}
+<div id="settlePaymentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-800">Record Payment for {{ invoice.invoice_no }}</h3>
+            <button onclick="closeModal('settlePaymentModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('pay_invoice', invoice_id=invoice.id) }}" method="POST" class="mt-4 space-y-4">
+            <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs">
+                <div class="flex justify-between text-amber-900">
+                    <span>Total Bill: <strong>{{ invoice.total_amount | currency }}</strong></span>
+                    <span>Already Paid: <strong>{{ invoice.paid_amount | currency }}</strong></span>
+                </div>
+                <div class="mt-1 font-bold text-rose-600 text-sm">
+                    Remaining Balance Due: {{ invoice.balance_due | currency }}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Payment Amount (₹) *</label>
+                <input type="number" step="0.5" min="1" max="{{ invoice.balance_due }}" name="additional_payment" value="{{ invoice.balance_due }}" required class="w-full px-3.5 py-2.5 text-sm font-bold text-emerald-700 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Payment Method</label>
+                <select name="payment_method" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                    <option value="Cash">Cash Counter</option>
+                    <option value="UPI / Online">UPI / QR (GPay, PhonePe, Paytm)</option>
+                    <option value="Debit Card">Debit Card</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Health Insurance">Insurance / TPA</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Transaction Ref / Cheque No</label>
+                <input type="text" name="transaction_ref" placeholder="UPI-9991823 / POS-441" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('settlePaymentModal')" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-sm font-bold bg-emerald-600 text-white rounded-xl shadow-md">Record Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

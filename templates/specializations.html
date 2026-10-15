@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Medical Specializations | Aarogya Hospital{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-stethoscope text-sky-600"></i> Clinical Specializations & Departments
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Configure medical departments, standard OPD consultation charges, and clinical assignments</p>
+        </div>
+        <div>
+            <button onclick="openModal('addSpecModal')" class="px-4 py-2.5 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Add Specialization
+            </button>
+        </div>
+    </div>
+
+    <!-- Specializations Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {% for s in specializations %}
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs card-hover flex flex-col justify-between overflow-hidden">
+            <div class="p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center text-xl shadow-xs">
+                        <i class="fa-solid {{ s.icon }}"></i>
+                    </div>
+                    <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-mono">
+                        {{ s.default_fee | currency }} Default
+                    </span>
+                </div>
+
+                <h3 class="text-lg font-bold text-slate-800">{{ s.name }}</h3>
+                <p class="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed">
+                    {{ s.description or 'Specialized clinical outpatient department care.' }}
+                </p>
+
+                <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-50 p-2 rounded-lg text-center">
+                        <span class="text-slate-400 block text-[10px] uppercase font-bold">Doctors</span>
+                        <span class="text-sm font-extrabold text-teal-700">{{ s.doctor_count }}</span>
+                    </div>
+                    <div class="bg-slate-50 p-2 rounded-lg text-center">
+                        <span class="text-slate-400 block text-[10px] uppercase font-bold">Appointments</span>
+                        <span class="text-sm font-extrabold text-sky-700">{{ s.appointment_count }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50/80 p-3.5 border-t border-slate-100 flex items-center justify-between">
+                <a href="{{ url_for('doctors_list', specialization=s.id) }}" class="text-xs font-semibold text-sky-600 hover:text-sky-800 flex items-center gap-1">
+                    View Doctors <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </a>
+                <button onclick="openEditSpecModal('{{ s.id }}', '{{ s.name }}', '{{ s.description }}', '{{ s.icon }}', '{{ s.default_fee }}')" 
+                        class="text-xs font-semibold text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- Modal: Add Specialization -->
+<div id="addSpecModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800">Add Clinical Specialization</h3>
+            <button onclick="closeModal('addSpecModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('add_specialization') }}" method="POST" class="mt-4 space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Specialization Name *</label>
+                <input type="text" name="name" required placeholder="e.g. Ophthalmology, Oncology, Urology" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Default OPD Fee (₹)</label>
+                    <input type="number" step="10" name="default_fee" value="500" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Icon Class</label>
+                    <select name="icon" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                        <option value="fa-stethoscope">Stethoscope (General)</option>
+                        <option value="fa-heart-pulse">Heart Pulse (Cardiology)</option>
+                        <option value="fa-brain">Brain (Neurology)</option>
+                        <option value="fa-bone">Bone (Orthopedics)</option>
+                        <option value="fa-baby">Baby (Pediatrics)</option>
+                        <option value="fa-hand-dots">Skin (Dermatology)</option>
+                        <option value="fa-head-side-cough">ENT (Throat/Nose)</option>
+                        <option value="fa-person-pregnant">Pregnancy (Gynecology)</option>
+                        <option value="fa-eye">Eye (Ophthalmology)</option>
+                        <option value="fa-tooth">Tooth (Dental)</option>
+                        <option value="fa-dna">DNA / Oncology</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department Description</label>
+                <textarea name="description" rows="3" placeholder="Scope of medical conditions and services..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('addSpecModal')" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-sm font-bold bg-sky-600 text-white rounded-xl">Create Department</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Specialization -->
+<div id="editSpecModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800">Edit Specialization</h3>
+            <button onclick="closeModal('editSpecModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form id="editSpecForm" method="POST" class="mt-4 space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Specialization Name *</label>
+                <input type="text" id="edit_spec_name" name="name" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Default OPD Fee (₹)</label>
+                    <input type="number" step="10" id="edit_spec_fee" name="default_fee" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Icon Class</label>
+                    <input type="text" id="edit_spec_icon" name="icon" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Description</label>
+                <textarea id="edit_spec_desc" name="description" rows="3" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('editSpecModal')" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-sm font-bold bg-sky-600 text-white rounded-xl">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditSpecModal(id, name, desc, icon, fee) {
+        document.getElementById('editSpecForm').action = `/specializations/${id}/edit`;
+        document.getElementById('edit_spec_name').value = name;
+        document.getElementById('edit_spec_desc').value = desc;
+        document.getElementById('edit_spec_icon').value = icon;
+        document.getElementById('edit_spec_fee').value = fee;
+        openModal('editSpecModal');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,474 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Aarogya Hospital & Clinic System{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Banner & Quick Actions -->
+    <div class="bg-gradient-to-r from-sky-700 via-sky-800 to-teal-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <span class="inline-block px-3 py-1 bg-white/15 backdrop-blur-xs rounded-full text-xs font-semibold tracking-wide uppercase text-sky-200 mb-2">
+                    <i class="fa-solid fa-notes-medical mr-1.5"></i> Hospital Operations Center
+                </span>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Welcome to {{ hospital_name }}</h1>
+                <p class="text-sky-200 text-sm mt-1 max-w-2xl">{{ hospital_tagline }} • Streamlined appointment booking, patient records, and billing workflow.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="openModal('quickAppointmentModal')" class="bg-white text-sky-800 hover:bg-sky-50 font-bold px-4 py-2.5 rounded-xl shadow-md transition-all text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-plus text-sky-600"></i> Book Appointment
+                </button>
+                <a href="{{ url_for('patients_list') }}" class="bg-sky-600/80 hover:bg-sky-600 text-white font-semibold px-4 py-2.5 rounded-xl border border-sky-400/40 transition-all text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus"></i> Add Patient
+                </a>
+                <a href="{{ url_for('billing_list') }}" class="bg-teal-600/80 hover:bg-teal-600 text-white font-semibold px-4 py-2.5 rounded-xl border border-teal-400/40 transition-all text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice"></i> Billing Desk
+                </a>
+            </div>
+        </div>
+        <!-- Decorative SVG background shapes -->
+        <div class="absolute -right-10 -bottom-10 opacity-10 text-white pointer-events-none">
+            <i class="fa-solid fa-heart-pulse text-[220px]"></i>
+        </div>
+    </div>
+
+    <!-- 4 Key Performance Indicators (KPI Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- 1. Total Patients -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs card-hover flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Patients</p>
+                <h3 class="text-3xl font-extrabold text-slate-800 mt-1">{{ total_patients }}</h3>
+                <a href="{{ url_for('patients_list') }}" class="text-xs font-semibold text-sky-600 hover:text-sky-800 mt-2 inline-flex items-center gap-1">
+                    View Registry <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </a>
+            </div>
+            <div class="w-13 h-13 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 text-2xl shadow-xs">
+                <i class="fa-solid fa-hospital-user"></i>
+            </div>
+        </div>
+
+        <!-- 2. Active Doctors -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs card-hover flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Doctors</p>
+                <h3 class="text-3xl font-extrabold text-slate-800 mt-1">{{ total_doctors }}</h3>
+                <a href="{{ url_for('doctors_list') }}" class="text-xs font-semibold text-teal-600 hover:text-teal-800 mt-2 inline-flex items-center gap-1">
+                    View Specialists <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </a>
+            </div>
+            <div class="w-13 h-13 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 text-2xl shadow-xs">
+                <i class="fa-solid fa-user-doctor"></i>
+            </div>
+        </div>
+
+        <!-- 3. Today's Appointments -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs card-hover flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Today's Appointments</p>
+                <h3 class="text-3xl font-extrabold text-sky-700 mt-1">{{ today_appointments_count }}</h3>
+                <span class="text-xs text-slate-500 mt-2 block">
+                    {{ total_appointments }} Total scheduled all-time
+                </span>
+            </div>
+            <div class="w-13 h-13 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-2xl shadow-xs">
+                <i class="fa-solid fa-calendar-day"></i>
+            </div>
+        </div>
+
+        <!-- 4. Revenue Collected -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs card-hover flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue Collected</p>
+                <h3 class="text-2xl font-extrabold text-emerald-600 mt-1">{{ financial.total_collected | currency }}</h3>
+                <p class="text-xs text-rose-500 font-semibold mt-1">
+                    Pending Due: {{ financial.total_due | currency }}
+                </p>
+            </div>
+            <div class="w-13 h-13 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 text-2xl shadow-xs">
+                <i class="fa-solid fa-indian-rupee-sign"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Chart 1: Appointments by Specialization -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-base font-bold text-slate-800">Department Consultations Distribution</h3>
+                    <p class="text-xs text-slate-400">Breakdown of appointments across medical specializations</p>
+                </div>
+                <a href="{{ url_for('specializations_list') }}" class="text-xs text-sky-600 font-semibold hover:underline">Manage Specializations</a>
+            </div>
+            <div class="h-64">
+                <canvas id="specChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 2: Appointment Status Distribution -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-base font-bold text-slate-800">Status Overview</h3>
+                    <p class="text-xs text-slate-400">Current state of patient bookings</p>
+                </div>
+            </div>
+            <div class="h-56 flex items-center justify-center">
+                <canvas id="statusChart"></canvas>
+            </div>
+            <div class="text-xs text-center text-slate-400 mt-2">
+                Click legend to toggle categories
+            </div>
+        </div>
+    </div>
+
+    <!-- Live OPD Schedule for Today -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+                    <i class="fa-solid fa-stethoscope"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-slate-800">Today's OPD & Clinic Appointments Queue</h2>
+                    <p class="text-xs text-slate-500">Live appointments booked for today ({{ today_date }})</p>
+                </div>
+            </div>
+            <a href="{{ url_for('appointments_list') }}" class="text-xs font-semibold text-sky-600 hover:text-sky-800 flex items-center gap-1.5 self-start sm:self-auto">
+                View Full Appointment Schedule <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </a>
+        </div>
+
+        {% if today_appointments %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-3.5 px-4">Token & Time</th>
+                        <th class="py-3.5 px-4">Patient Name</th>
+                        <th class="py-3.5 px-4">Doctor & Specialization</th>
+                        <th class="py-3.5 px-4">Visit Type & Reason</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for apt in today_appointments %}
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4">
+                            <span class="font-bold text-slate-800 block">{{ apt.appointment_time }}</span>
+                            <span class="text-xs font-mono text-slate-400">{{ apt.appointment_no }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <a href="{{ url_for('patient_detail', patient_id=apt.patient_id) }}" class="font-semibold text-sky-700 hover:underline block">
+                                {{ apt.patient_name }}
+                            </a>
+                            <span class="text-xs text-slate-500 font-mono">{{ apt.patient_code }} • {{ apt.patient_phone }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <a href="{{ url_for('doctor_detail', doctor_id=apt.doctor_id) }}" class="font-medium text-slate-800 hover:underline block">
+                                {{ apt.doctor_name }}
+                            </a>
+                            <span class="text-xs text-teal-600 font-semibold">{{ apt.specialization_name }}</span>
+                            <span class="text-xs text-slate-400">({{ apt.cabin_no }})</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                {{ apt.visit_type }}
+                            </span>
+                            <p class="text-xs text-slate-500 mt-0.5 truncate max-w-xs">{{ apt.reason or 'Routine follow-up' }}</p>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5
+                                {% if apt.status == 'Scheduled' %}badge-status-scheduled
+                                {% elif apt.status == 'Confirmed' %}badge-status-confirmed
+                                {% elif apt.status == 'Completed' %}badge-status-completed
+                                {% elif apt.status == 'Cancelled' %}badge-status-cancelled
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                <span class="w-1.5 h-1.5 rounded-full 
+                                    {% if apt.status == 'Scheduled' %}bg-amber-500
+                                    {% elif apt.status == 'Confirmed' %}bg-sky-500
+                                    {% elif apt.status == 'Completed' %}bg-emerald-500
+                                    {% else %}bg-slate-400{% endif %}"></span>
+                                {{ apt.status }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                            {% if apt.status == 'Scheduled' %}
+                            <form action="{{ url_for('update_appointment_status', apt_id=apt.id) }}" method="POST" class="inline">
+                                <input type="hidden" name="status" value="Confirmed">
+                                <button type="submit" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100">
+                                    <i class="fa-solid fa-check mr-1"></i> Confirm
+                                </button>
+                            </form>
+                            {% elif apt.status == 'Confirmed' %}
+                            <form action="{{ url_for('update_appointment_status', apt_id=apt.id) }}" method="POST" class="inline">
+                                <input type="hidden" name="status" value="Completed">
+                                <button type="submit" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+                                    <i class="fa-solid fa-circle-check mr-1"></i> Mark Done
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            <a href="{{ url_for('billing_list') }}" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 inline-block">
+                                <i class="fa-solid fa-file-invoice mr-1"></i> Bill
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-500">
+            <i class="fa-regular fa-calendar-xmark text-4xl text-slate-300 mb-2"></i>
+            <p class="font-medium">No appointments scheduled for today yet.</p>
+            <button onclick="openModal('quickAppointmentModal')" class="mt-3 px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 text-white hover:bg-sky-700">
+                Book an Appointment
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Billing Records -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-slate-800">Recent Invoices & Transactions</h2>
+                    <p class="text-xs text-slate-500">Latest patient bills and payment clearances</p>
+                </div>
+            </div>
+            <a href="{{ url_for('billing_list') }}" class="text-xs font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1.5">
+                View All Bills <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-3 px-4">Invoice #</th>
+                        <th class="py-3 px-4">Patient</th>
+                        <th class="py-3 px-4">Attending Doctor</th>
+                        <th class="py-3 px-4">Date</th>
+                        <th class="py-3 px-4">Total Amount</th>
+                        <th class="py-3 px-4">Paid</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 text-right">View / Print</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for inv in recent_invoices %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="py-3 px-4 font-mono font-bold text-sky-700">
+                            {{ inv.invoice_no }}
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">
+                            {{ inv.patient_name }}
+                        </td>
+                        <td class="py-3 px-4 text-slate-600">
+                            {{ inv.doctor_name }}
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-500 font-mono">
+                            {{ inv.invoice_date }}
+                        </td>
+                        <td class="py-3 px-4 font-bold text-slate-800">
+                            {{ inv.total_amount | currency }}
+                        </td>
+                        <td class="py-3 px-4 text-emerald-600 font-semibold">
+                            {{ inv.paid_amount | currency }}
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold
+                                {% if inv.payment_status == 'Paid' %}badge-status-paid
+                                {% elif inv.payment_status == 'Partially Paid' %}badge-status-partially-paid
+                                {% else %}badge-status-unpaid{% endif %}">
+                                {{ inv.payment_status }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="px-3 py-1 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 text-slate-700 font-semibold rounded-lg text-xs transition-colors border border-slate-200">
+                                <i class="fa-solid fa-file-lines mr-1"></i> Receipt
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Quick Book Appointment -->
+<div id="quickAppointmentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Book Patient Appointment</h3>
+                    <p class="text-xs text-slate-500">Schedule consultation or follow-up slot</p>
+                </div>
+            </div>
+            <button onclick="closeModal('quickAppointmentModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('book_appointment') }}" method="POST" class="mt-4 space-y-4">
+            <!-- Patient selection -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Select Patient *</label>
+                <select name="patient_id" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    <option value="">-- Choose Patient --</option>
+                    {% for p in patients %}
+                    <option value="{{ p.id }}">{{ p.name }} ({{ p.patient_id }} • {{ p.phone }})</option>
+                    {% endfor %}
+                </select>
+                <div class="mt-1 text-right">
+                    <a href="{{ url_for('patients_list') }}" class="text-xs text-sky-600 font-medium hover:underline">+ Register New Patient First</a>
+                </div>
+            </div>
+
+            <!-- Doctor selection -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Select Doctor & Specialty *</label>
+                <select name="doctor_id" id="quick_doctor_select" required onchange="handleDoctorSelect(this, null, 'quick_doc_cabin_info')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    <option value="">-- Choose Doctor --</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.id }}">{{ d.name }} — {{ d.spec_name }} (Fee: {{ d.consultation_fee | currency }})</option>
+                    {% endfor %}
+                </select>
+                <p id="quick_doc_cabin_info" class="text-xs text-slate-500 mt-1 font-medium"></p>
+            </div>
+
+            <!-- Date and Time -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Appointment Date *</label>
+                    <input type="date" name="appointment_date" value="{{ today_date }}" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Time Slot *</label>
+                    <select name="appointment_time" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                        <option value="09:00 AM">09:00 AM</option>
+                        <option value="09:30 AM">09:30 AM</option>
+                        <option value="10:00 AM">10:00 AM</option>
+                        <option value="10:30 AM">10:30 AM</option>
+                        <option value="11:00 AM">11:00 AM</option>
+                        <option value="11:30 AM">11:30 AM</option>
+                        <option value="12:00 PM">12:00 PM</option>
+                        <option value="12:30 PM">12:30 PM</option>
+                        <option value="04:00 PM">04:00 PM</option>
+                        <option value="04:30 PM">04:30 PM</option>
+                        <option value="05:00 PM">05:00 PM</option>
+                        <option value="05:30 PM">05:30 PM</option>
+                        <option value="06:00 PM">06:00 PM</option>
+                        <option value="06:30 PM">06:30 PM</option>
+                        <option value="07:00 PM">07:00 PM</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Visit Type -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Visit Type</label>
+                <select name="visit_type" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    <option value="Consultation">General Consultation</option>
+                    <option value="Follow-up">Follow-up Visit</option>
+                    <option value="Routine Checkup">Routine Wellness Checkup</option>
+                    <option value="Emergency">Urgent / Emergency Consultation</option>
+                </select>
+            </div>
+
+            <!-- Symptoms / Reason -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Reason for Visit / Symptoms</label>
+                <textarea name="reason" rows="2" placeholder="e.g. Chest discomfort, severe headache, seasonal allergy..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('quickAppointmentModal')" class="px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md">Confirm Booking</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Specialization distribution chart
+    const specCtx = document.getElementById('specChart').getContext('2d');
+    const specLabels = {{ spec_chart_labels | tojson }};
+    const specValues = {{ spec_chart_values | tojson }};
+
+    new Chart(specCtx, {
+        type: 'bar',
+        data: {
+            labels: specLabels,
+            datasets: [{
+                label: 'Appointments',
+                data: specValues,
+                backgroundColor: [
+                    '#0284c7', '#0d9488', '#6366f1', '#f59e0b',
+                    '#10b981', '#ec4899', '#8b5cf6', '#14b8a6'
+                ],
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0 }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+
+    // Appointment status doughnut chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    const statusLabels = {{ status_chart_labels | tojson }};
+    const statusValues = {{ status_chart_values | tojson }};
+
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusValues,
+                backgroundColor: ['#0284c7', '#10b981', '#f59e0b', '#ef4444', '#64748b'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            cutout: '68%'
+        }
+    });
+</script>
+{% endblock %}

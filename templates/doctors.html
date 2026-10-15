@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block title %}Specialist Doctors Directory | Aarogya Hospital{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-user-doctor text-teal-600"></i> Doctors & Medical Specialists
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Manage doctor profiles, specializations, consulting hours, and fee schedules</p>
+        </div>
+        <div>
+            <button onclick="openModal('addDoctorModal')" class="px-4 py-2.5 text-xs font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Add New Doctor
+            </button>
+        </div>
+    </div>
+
+    <!-- Specialization Filter Chips -->
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center space-x-2 overflow-x-auto">
+        <span class="text-xs font-bold uppercase text-slate-400 pl-2 pr-1 shrink-0">Filter Dept:</span>
+        <a href="{{ url_for('doctors_list') }}" 
+           class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors {% if not current_spec %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            All Departments
+        </a>
+        {% for s in specializations %}
+        <a href="{{ url_for('doctors_list', specialization=s.id) }}" 
+           class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 {% if current_spec == s.id|string %}bg-teal-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <i class="fa-solid {{ s.icon }} text-[11px]"></i> {{ s.name }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Doctors Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {% for doc in doctors %}
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs card-hover flex flex-col justify-between overflow-hidden">
+            <div class="p-5">
+                <div class="flex items-start justify-between mb-3">
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 border border-teal-100 flex items-center gap-1.5">
+                        <i class="fa-solid {{ doc.spec_icon }} text-[11px]"></i>
+                        {{ doc.specialization_name }}
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if doc.status == 'Active' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">
+                        {{ doc.status }}
+                    </span>
+                </div>
+
+                <h3 class="text-base font-extrabold text-slate-800">{{ doc.name }}</h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">{{ doc.qualification }}</p>
+                <p class="text-xs text-sky-600 font-semibold mt-1">
+                    <i class="fa-solid fa-award mr-1"></i> {{ doc.experience_years }} Years Clinical Experience
+                </p>
+
+                <div class="mt-4 pt-4 border-t border-slate-100 space-y-2 text-xs text-slate-600">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Consultation Fee:</span>
+                        <span class="font-extrabold text-slate-800 text-sm">{{ doc.consultation_fee | currency }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Cabin No:</span>
+                        <span class="font-bold text-slate-700">{{ doc.cabin_no or 'OPD Desk' }}</span>
+                    </div>
+                    <div class="flex items-start justify-between">
+                        <span class="text-slate-400">OPD Days:</span>
+                        <span class="font-medium text-slate-700 text-right">{{ doc.available_days }}</span>
+                    </div>
+                    <div class="flex items-start justify-between">
+                        <span class="text-slate-400">Timings:</span>
+                        <span class="font-medium text-slate-700 text-right text-[11px] max-w-[150px] truncate" title="{{ doc.available_time }}">{{ doc.available_time }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50/80 p-3.5 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs text-slate-500 font-medium">
+                    <i class="fa-regular fa-calendar-check text-sky-600"></i> {{ doc.total_appointments }} Visits
+                </span>
+                <a href="{{ url_for('doctor_detail', doctor_id=doc.id) }}" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-white text-slate-700 hover:text-teal-700 hover:bg-teal-50 border border-slate-200 transition-colors">
+                    View Profile <i class="fa-solid fa-chevron-right text-[9px] ml-0.5"></i>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- Modal: Add New Doctor -->
+<div id="addDoctorModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-user-doctor"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Add New Doctor</h3>
+                    <p class="text-xs text-slate-500">Register specialist physician profile & OPD slot</p>
+                </div>
+            </div>
+            <button onclick="closeModal('addDoctorModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('add_doctor') }}" method="POST" class="mt-4 space-y-4">
+            <!-- Doctor Name -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Doctor Name (with Dr. prefix) *</label>
+                <input type="text" name="name" required placeholder="e.g. Dr. Alok Nath" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none">
+            </div>
+
+            <!-- Specialization & Qualification -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department / Specialty *</label>
+                    <select name="specialization_id" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                        <option value="">-- Choose Specialization --</option>
+                        {% for s in specializations %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Qualifications *</label>
+                    <input type="text" name="qualification" required placeholder="MBBS, MD, MS, DM" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Experience & Consultation Fee -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Experience (Years)</label>
+                    <input type="number" name="experience_years" min="0" value="8" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Consultation Fee (₹) *</label>
+                    <input type="number" step="10" name="consultation_fee" value="500" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Contact: Phone & Email -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number *</label>
+                    <input type="text" name="phone" required placeholder="+91 98111 22233" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address</label>
+                    <input type="email" name="email" placeholder="doctor@hospital.org" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <!-- Cabin & Status -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Cabin / Room No</label>
+                    <input type="text" name="cabin_no" placeholder="Cabin 109" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Status</label>
+                    <select name="status" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                        <option value="Active" selected>Active</option>
+                        <option value="On Leave">On Leave</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Available Days & Hours -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Available Days</label>
+                    <input type="text" name="available_days" value="Mon - Sat" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">OPD Hours</label>
+                    <input type="text" name="available_time" value="09:00 AM - 01:00 PM, 04:00 PM - 07:00 PM" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('addDoctorModal')" class="px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-md">Save Doctor</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

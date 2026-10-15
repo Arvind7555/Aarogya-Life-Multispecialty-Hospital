@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ doctor.name }} | Doctor Profile{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Breadcrumb & Actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center space-x-2 text-xs font-semibold text-slate-500">
+            <a href="{{ url_for('doctors_list') }}" class="hover:text-teal-600 flex items-center gap-1">
+                <i class="fa-solid fa-arrow-left"></i> Back to Doctors Directory
+            </a>
+            <span>/</span>
+            <span class="text-slate-700">{{ doctor.name }}</span>
+        </div>
+        <div>
+            <button onclick="openModal('editDoctorModal')" class="px-3.5 py-2 text-xs font-bold rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-pen-to-square text-teal-600"></i> Edit Profile & Schedule
+            </button>
+        </div>
+    </div>
+
+    <!-- Doctor Profile Header Card -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 text-white flex items-center justify-center text-2xl font-bold shadow-md shadow-teal-500/20">
+                    <i class="fa-solid {{ doctor.spec_icon }}"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-3">
+                        <h1 class="text-2xl font-extrabold text-slate-800">{{ doctor.name }}</h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold {% if doctor.status == 'Active' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">
+                            {{ doctor.status }}
+                        </span>
+                    </div>
+                    <p class="text-sm font-semibold text-teal-700 mt-0.5">{{ doctor.specialization_name }} • {{ doctor.qualification }}</p>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Cabin: <strong class="text-slate-700">{{ doctor.cabin_no or 'Desk' }}</strong> • 
+                        Experience: <strong class="text-slate-700">{{ doctor.experience_years }} Years</strong> • 
+                        Consultation Fee: <strong class="text-emerald-700 font-extrabold">{{ doctor.consultation_fee | currency }}</strong>
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                <div>
+                    <span class="text-xs uppercase font-bold text-slate-400 block">Total Patients Seen</span>
+                    <span class="text-xl font-extrabold text-slate-800">{{ appointments | length }}</span>
+                </div>
+                <div>
+                    <span class="text-xs uppercase font-bold text-slate-400 block">Revenue Generated</span>
+                    <span class="text-xl font-extrabold text-emerald-600">{{ revenue.total_revenue | currency }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
+                <span class="font-bold uppercase tracking-wider text-slate-400 block mb-1">Contact & Registry</span>
+                <p class="text-slate-800 font-semibold">{{ doctor.phone }}</p>
+                <p class="text-slate-500">{{ doctor.email or 'No email' }}</p>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
+                <span class="font-bold uppercase tracking-wider text-slate-400 block mb-1">OPD Hours & Schedule</span>
+                <p class="text-slate-700 font-medium"><strong>Days:</strong> {{ doctor.available_days }}</p>
+                <p class="text-slate-700 font-medium mt-0.5"><strong>Hours:</strong> {{ doctor.available_time }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctor's Appointments Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-teal-600"></i> Scheduled Consultations for {{ doctor.name }}
+            </h2>
+            <span class="text-xs text-slate-500 font-semibold">{{ appointments | length }} records</span>
+        </div>
+
+        {% if appointments %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-3 px-4">Token #</th>
+                        <th class="py-3 px-4">Date & Slot</th>
+                        <th class="py-3 px-4">Patient Name</th>
+                        <th class="py-3 px-4">Visit Type</th>
+                        <th class="py-3 px-4">Reason / Notes</th>
+                        <th class="py-3 px-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for a in appointments %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="py-3 px-4 font-mono font-bold text-sky-700">{{ a.appointment_no }}</td>
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-slate-800 block">{{ a.appointment_date }}</span>
+                            <span class="text-xs text-slate-500">{{ a.appointment_time }}</span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <a href="{{ url_for('patient_detail', patient_id=a.patient_id) }}" class="font-semibold text-slate-800 hover:text-sky-600 block">
+                                {{ a.patient_name }}
+                            </a>
+                            <span class="text-xs text-slate-400 font-mono">{{ a.patient_code }} • {{ a.patient_phone }}</span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                {{ a.visit_type }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 max-w-xs">
+                            <p class="text-xs text-slate-600 truncate">{{ a.reason or 'Consultation' }}</p>
+                            {% if a.doctor_notes %}
+                            <p class="text-[11px] text-teal-700 italic mt-0.5 truncate">Rx: {{ a.doctor_notes }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold
+                                {% if a.status == 'Scheduled' %}badge-status-scheduled
+                                {% elif a.status == 'Confirmed' %}badge-status-confirmed
+                                {% elif a.status == 'Completed' %}badge-status-completed
+                                {% elif a.status == 'Cancelled' %}badge-status-cancelled
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ a.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-500 text-xs">
+            No appointments booked for this doctor yet.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Modal: Edit Doctor Profile -->
+<div id="editDoctorModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800">Edit Doctor Profile</h3>
+            <button onclick="closeModal('editDoctorModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('edit_doctor', doctor_id=doctor.id) }}" method="POST" class="mt-4 space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Name</label>
+                <input type="text" name="name" value="{{ doctor.name }}" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Specialization</label>
+                    <select name="specialization_id" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                        {% for s in specializations %}
+                        <option value="{{ s.id }}" {% if doctor.specialization_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Qualifications</label>
+                    <input type="text" name="qualification" value="{{ doctor.qualification }}" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Experience (Years)</label>
+                    <input type="number" name="experience_years" value="{{ doctor.experience_years }}" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Consultation Fee (₹)</label>
+                    <input type="number" step="10" name="consultation_fee" value="{{ doctor.consultation_fee }}" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone</label>
+                    <input type="text" name="phone" value="{{ doctor.phone }}" required class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email</label>
+                    <input type="email" name="email" value="{{ doctor.email or '' }}" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Cabin No</label>
+                    <input type="text" name="cabin_no" value="{{ doctor.cabin_no or '' }}" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Status</label>
+                    <select name="status" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                        <option value="Active" {% if doctor.status == 'Active' %}selected{% endif %}>Active</option>
+                        <option value="On Leave" {% if doctor.status == 'On Leave' %}selected{% endif %}>On Leave</option>
+                        <option value="Inactive" {% if doctor.status == 'Inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Available Days</label>
+                    <input type="text" name="available_days" value="{{ doctor.available_days }}" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">OPD Timings</label>
+                    <input type="text" name="available_time" value="{{ doctor.available_time }}" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl">
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('editDoctorModal')" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-sm font-bold bg-teal-600 text-white rounded-xl">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

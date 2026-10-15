@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block title %}Patients Registry | Aarogya Hospital{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-hospital-user text-sky-600"></i> Patients Directory & Records
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Manage patient registrations, clinical histories, and visit records</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('export_patients') }}" class="px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs flex items-center gap-2">
+                <i class="fa-solid fa-file-csv text-emerald-600 text-sm"></i> Export CSV
+            </a>
+            <button onclick="openModal('addPatientModal')" class="px-4 py-2.5 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-user-plus"></i> Register New Patient
+            </button>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+        <form action="{{ url_for('patients_list') }}" method="GET" class="w-full sm:max-w-md flex items-center space-x-2">
+            <div class="relative flex-1">
+                <span class="absolute left-3.5 top-2.5 text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search by name, UHID (PAT-1001), phone, or blood group..." 
+                       class="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl">Search</button>
+            {% if search_query %}
+            <a href="{{ url_for('patients_list') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl">Clear</a>
+            {% endif %}
+        </form>
+        <span class="text-xs text-slate-500 font-medium">
+            Showing <strong class="text-slate-800">{{ patients | length }}</strong> patients registered
+        </span>
+    </div>
+
+    <!-- Patients List Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {% if patients %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-3.5 px-4">UHID / Patient ID</th>
+                        <th class="py-3.5 px-4">Patient Demographics</th>
+                        <th class="py-3.5 px-4">Blood Group</th>
+                        <th class="py-3.5 px-4">Contact Info</th>
+                        <th class="py-3.5 px-4">Medical Alert / History</th>
+                        <th class="py-3.5 px-4">Total Visits</th>
+                        <th class="py-3.5 px-4">Due Balance</th>
+                        <th class="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for p in patients %}
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-mono font-bold text-sky-700">
+                            {{ p.patient_id }}
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <a href="{{ url_for('patient_detail', patient_id=p.id) }}" class="font-bold text-slate-800 hover:text-sky-600 block">
+                                {{ p.name }}
+                            </a>
+                            <span class="text-xs text-slate-500">
+                                {{ p.age }} Yrs • {{ p.gender }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-block font-mono">
+                                {{ p.blood_group }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="text-slate-700 font-medium block">{{ p.phone }}</span>
+                            <span class="text-xs text-slate-400 truncate block max-w-[180px]">{{ p.email or 'No email' }}</span>
+                        </td>
+                        <td class="py-3.5 px-4 max-w-xs">
+                            {% if p.medical_history %}
+                            <p class="text-xs text-slate-600 line-clamp-2" title="{{ p.medical_history }}">
+                                {{ p.medical_history }}
+                            </p>
+                            {% else %}
+                            <span class="text-xs text-slate-400 italic">None recorded</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-100">
+                                {{ p.total_visits }} Visits
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 font-semibold">
+                            {% if p.pending_due > 0 %}
+                            <span class="text-rose-600 font-bold">{{ p.pending_due | currency }}</span>
+                            {% else %}
+                            <span class="text-emerald-600 text-xs font-bold flex items-center gap-1">
+                                <i class="fa-solid fa-check"></i> Clear
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                            <a href="{{ url_for('patient_detail', patient_id=p.id) }}" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition-colors inline-flex items-center gap-1">
+                                <i class="fa-solid fa-id-card"></i> 360 View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-slate-500">
+            <i class="fa-solid fa-user-xmark text-4xl text-slate-300 mb-3"></i>
+            <p class="font-medium">No patient records found.</p>
+            {% if search_query %}
+            <p class="text-xs text-slate-400 mt-1">Try searching with a different term.</p>
+            {% endif %}
+            <button onclick="openModal('addPatientModal')" class="mt-4 px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 text-white hover:bg-sky-700">
+                Register New Patient
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Register Patient -->
+<div id="addPatientModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Register New Patient</h3>
+                    <p class="text-xs text-slate-500">Create new patient UHID file and demographics</p>
+                </div>
+            </div>
+            <button onclick="closeModal('addPatientModal')" class="text-slate-400 hover:text-slate-600 p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('add_patient') }}" method="POST" class="mt-4 space-y-4">
+            <!-- Full Name -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
+                <input type="text" name="name" required placeholder="e.g. Rahul Sharma" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            </div>
+
+            <!-- Age, Gender, Blood Group -->
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Age (Years) *</label>
+                    <input type="number" name="age" min="0" max="130" required placeholder="32" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Gender *</label>
+                    <select name="gender" required class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Blood Group</label>
+                    <select name="blood_group" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="Unknown" selected>Unknown</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Phone & Email -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number *</label>
+                    <input type="text" name="phone" required placeholder="+91 98765 43210" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address</label>
+                    <input type="email" name="email" placeholder="patient@example.com" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Address -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Residential Address</label>
+                <input type="text" name="address" placeholder="Flat No., Street, City, Pincode" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            </div>
+
+            <!-- Emergency Contact -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Emergency Contact (Relation & Phone)</label>
+                <input type="text" name="emergency_contact" placeholder="+91 98765 00000 (Spouse / Guardian)" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            </div>
+
+            <!-- Medical History / Allergies -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Medical History, Chronic Illness & Allergies</label>
+                <textarea name="medical_history" rows="2" placeholder="e.g. Diabetic, Hypertension, Penicillin allergy, Previous surgeries..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('addPatientModal')" class="px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md">Complete Registration</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
